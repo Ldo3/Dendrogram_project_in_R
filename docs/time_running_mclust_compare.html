@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Compare running time of the dendrogram method to Mclust</title>
+
+<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/main/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Dendrogram_project_in_R</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Overview</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Compare running time of the dendrogram
+method to Mclust</h1>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+workflowr <span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2025-08-29
+</p>
+<p>
+<strong>Checks:</strong> <span
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 7
+<span class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span> 0
+</p>
+<p>
+<strong>Knit directory:</strong> <code>Dendrogram_project_in_R/</code>
+<span class="glyphicon glyphicon-question-sign" aria-hidden="true"
+title="This is the local directory in which the code in this file was executed.">
+</span>
+</p>
+<p>
+This reproducible <a href="https://rmarkdown.rstudio.com">R Markdown</a>
+analysis was created with <a
+  href="https://github.com/workflowr/workflowr">workflowr</a> (version
+1.7.2). The <em>Checks</em> tab describes the reproducibility checks
+that were applied when the results were created. The <em>Past
+versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date
+</a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git
+repository, you know the exact version of the code that produced these
+results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the
+global environment can affect the analysis in your R Markdown file in
+unknown ways. For reproduciblity it’s best to always run the code in an
+empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20250829code">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Seed:</strong>
+<code>set.seed(20250829)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20250829code"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20250829)</code> was run prior to running
+the code in the R Markdown file. Setting a seed ensures that any results
+that rely on randomness, e.g. subsampling or permutations, are
+reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Session information:</strong>
+recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package
+versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be
+confident that you successfully produced the results during this
+run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr
+project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrong201a83b">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Repository version:</strong> 201a83b
+</a>
+</p>
+</div>
+<div id="strongRepositoryversionstrong201a83b"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development
+and connecting the code version to the results is critical for
+reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version 201a83b.
+See the <em>Past versions</em> tab to see a history of the changes made
+to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for
+the analysis have been committed to Git prior to generating the results
+(you can use <code>wflow_publish</code> or
+<code>wflow_git_commit</code>). workflowr only checks the R Markdown
+file, but you know if there are other scripts or data files that it
+depends on. Below is the status of the Git repository when the results
+were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .DS_Store
+
+Untracked files:
+    Untracked:  code/dendrogram.R
+    Untracked:  comparison_weak_diff_nonseparate_n_500.rds
+    Untracked:  data/comparison_weak_diff_nonseparate_n_500.rds
+    Untracked:  data/comparison_weak_diff_nonseparate_n_5000.rds
+    Untracked:  data/comparison_weak_diff_nonseparate_n_50000.rds
+    Untracked:  data/comparison_weak_equal_separate_n_1000.rds
+    Untracked:  data/comparison_weak_equal_separate_n_500.rds
+    Untracked:  data/comparison_weak_equal_separate_n_5000.rds
+    Untracked:  data/comparison_weak_equal_separate_n_50000.rds
+
+Unstaged changes:
+    Modified:   analysis/_site.yml
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not
+included in this status report because it is ok for generated content to
+have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+<p>
+These are the previous versions of the repository in which changes were
+made to the R Markdown
+(<code>analysis/time_running_mclust_compare.Rmd</code>) and HTML
+(<code>docs/time_running_mclust_compare.html</code>) files. If you’ve
+configured a remote Git repository (see <code>?wflow_git_remote</code>),
+click on the hyperlinks in the table below to view the files as they
+were in that past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+201a83b
+</td>
+<td>
+Ldo3
+</td>
+<td>
+2025-08-29
+</td>
+<td>
+wflow_publish(c("index.Rmd", "time_running_mclust_compare.Rmd"))
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<p>In this experiment, we compare the running time of the Dendrogram
+post-processing method (applied to overfitted mixture models) to the
+traditional approach of fitting mixture models with various numbers of
+components using the <code>Mclust</code> package in the programming
+language <code>R</code>. The data was generated under the two scenarios
+discussed in the previous section, where we have weakly identifiable and
+equal-size, equally spaced clusters and weakly identifiable and
+different-size, overlapping clusters settings. In the traditional
+approach, we ran Mclust with the number of components varying from <span
+class="math inline">\(1\)</span> to <span
+class="math inline">\(10\)</span>, allowing for a full covariance matrix
+(<code>modelNames = "VVV"</code>), and chose the model with the lowest
+BIC score. In our proposed approach, we ran Mclust once, with the number
+of components being <span class="math inline">\(10\)</span>, and then
+used the Dendrogram algorithm afterward. Given the recorded output in
+each level of the Dendrogram, we calculated the associated BIC score. We
+then chose the model that has the smallest BIC value. The following two
+tables show the result after running 20 replication times for each of
+the same sizes of <span class="math inline">\(n = 500, 5000,
+50000\)</span>. It is clear to see that the Dendrogram approach saves
+computation time since we only need to fit the model once. We also
+achieved a good model compared to the MLE output by looking at the
+Wasserstein distance and BIC score report.</p>
+<p><strong>Note:</strong> This site contains all code that we used for
+the experiment. It can be used for reproducing the results. We saved
+output in <code>.rds</code> files in the <code>data</code> folder.</p>
+<div id="beginning-functions" class="section level1">
+<h1>Beginning functions</h1>
+<div id="source-the-dendrogram-code" class="section level2">
+<h2>Source the dendrogram code</h2>
+</div>
+<div id="generating-the-data-function" class="section level2">
+<h2>Generating the data function</h2>
+<pre class="r"><code># Generate samples from a Gaussian mixture
+gen_mix_Gauss &lt;- function(n, p, mus_true, Sigmas_true) {
+  k0 &lt;- length(p)
+  d &lt;- length(mus_true[[1]])
+  
+  y &lt;- sample(1:k0, size = n, replace = TRUE, prob = p)  # cluster labels
+  X &lt;- matrix(0, nrow = n, ncol = d)
+  
+  for (i in 1:k0) {
+    idx &lt;- which(y == i)
+    if (length(idx) &gt; 0) {
+      X[idx, ] &lt;- rmvnorm(length(idx), mean = mus_true[[i]], sigma = Sigmas_true[[i]])
+    }
+  }
+  
+  return(list(X = X, y = y))
+}
+
+# Log-likelihood for mixture
+average_llh &lt;- function(X, p, mu, Sigma) {
+  n &lt;- nrow(X)
+  k &lt;- length(p)
+  logpdfs &lt;- sapply(1:k, function(i) {
+    dmvnorm(X, mean = mu[[i]], sigma = Sigma[[i]], log = TRUE)
+  })
+  llh_bar &lt;- mean(matrixStats::rowLogSumExps(log(p) + logpdfs))
+  return(llh_bar)
+}
+
+library(mvtnorm)
+
+library(mvtnorm)
+
+gmm_loglik &lt;- function(X, pis, mus, Sigmas) {
+  n &lt;- nrow(X)
+  k &lt;- length(pis)
+  
+  # Matrix: n x k of component densities
+  dens &lt;- sapply(1:k, function(j) {
+    dmvnorm(X, mean = mus[j, ], sigma = Sigmas[[j]], log = FALSE)
+  })
+  
+  # Mixture likelihood per point
+  mixture_prob &lt;- dens %*% pis
+  
+  # Total log-likelihood
+  sum(log(mixture_prob + 1e-12))
+}
+
+
+omega &lt;- function(n) log(n)
+
+# Class: Fixed covariance Gaussian mixture
+FixedCovMixture &lt;- setRefClass(
+  &quot;FixedCovMixture&quot;,
+  fields = list(
+    n_components = &quot;numeric&quot;,
+    cov = &quot;matrix&quot;,
+    max_iter = &quot;numeric&quot;,
+    random_state = &quot;numeric&quot;,
+    tol = &quot;numeric&quot;,
+    p_ = &quot;numeric&quot;,
+    mean_ = &quot;matrix&quot;,
+    n_iter_ = &quot;numeric&quot;
+  ),
+  methods = list(
+    initialize = function(n_components, cov, max_iter = 100, random_state = NULL, tol = 1e-4) {
+      n_components &lt;&lt;- n_components
+      cov &lt;&lt;- cov
+      max_iter &lt;&lt;- max_iter
+      random_state &lt;&lt;- random_state
+      tol &lt;&lt;- tol
+      p_ &lt;&lt;- rep(1 / n_components, n_components)
+    },
+    
+    fit = function(X) {
+      if (!is.null(random_state)) set.seed(random_state)
+      n_obs &lt;- nrow(X)
+      n_features &lt;- ncol(X)
+      
+      # initialize centers
+      mean_ &lt;&lt;- X[sample(1:n_obs, size = n_components), , drop = FALSE]
+      
+      for (i in 1:max_iter) {
+        res &lt;- updated_centers(X)
+        new_p &lt;- res$p
+        new_centers &lt;- res$centers
+        
+        if (sum(abs(new_centers - mean_)) &lt; tol) {
+          break
+        } else {
+          mean_ &lt;&lt;- new_centers
+          p_ &lt;&lt;- new_p
+        }
+      }
+      n_iter_ &lt;&lt;- i
+    },
+    
+    updated_centers = function(X) {
+      cluster_posterior &lt;- predict_proba(X)
+      
+      weight &lt;- cluster_posterior / rowSums(cluster_posterior)
+      new_p &lt;- colSums(cluster_posterior) / sum(cluster_posterior)
+      new_centers &lt;- t(weight) %*% X
+      
+      return(list(p = new_p, centers = new_centers))
+    },
+    
+    predict_proba = function(X) {
+      likelihood &lt;- sapply(1:n_components, function(i) {
+        dmvnorm(X, mean = mean_[i, ], sigma = cov)
+      })
+      weights &lt;- p_ * t(likelihood)
+      cluster_posterior &lt;- t(weights) / colSums(weights)
+      return(cluster_posterior)
+    },
+    
+    predict = function(X) {
+      post &lt;- predict_proba(X)
+      return(max.col(post, ties.method = &quot;first&quot;))
+    }
+  )
+)
+
+fast_dmvnorm &lt;- function(X, mean, sigma) {
+     d &lt;- ncol(X)
+     n &lt;- nrow(X)
+     
+     # Cholesky decomposition
+     cholS &lt;- chol(sigma)
+     logdet &lt;- 2 * sum(log(diag(cholS)))
+     
+     # Centered data
+     Xc &lt;- sweep(X, 2, mean, &quot;-&quot;)
+     
+     # Solve using triangular system (avoids matrix inverse!)
+     Q &lt;- forwardsolve(t(cholS), t(Xc))  # d x n
+     quad &lt;- colSums(Q^2)                 # quadratic form
+     
+     const &lt;- -0.5 * d * log(2 * pi)
+     dens &lt;- exp(const - 0.5 * logdet - 0.5 * quad)
+     return(dens)
+}
+
+gmm_loglik_fast &lt;- function(X, pis, mus, Sigmas) {
+     n &lt;- nrow(X)
+     k &lt;- length(pis)
+     
+     # Compute n x k density matrix
+     dens &lt;- sapply(1:k, function(j) {
+          fast_dmvnorm(X, mean = mus[j, ], sigma = Sigmas[[j]])
+     })
+     
+     # Weighted mixture likelihood
+     mixture_prob &lt;- dens %*% pis
+     
+     # Total log-likelihood
+     sum(log(mixture_prob + 1e-12))
+}</code></pre>
+</div>
+<div id="calculate-optimal-transport-function" class="section level2">
+<h2>Calculate optimal transport function</h2>
+<pre class="r"><code>library(transport)
+
+# Compute Wasserstein distance between two Gaussian mixtures (ignoring covariance)
+wasserstein_mixture &lt;- function(p_true, mus_true, p_hat, mus_hat, p = 2) {
+  # p_true: vector of mixing proportions (sum to 1)
+  # mus_true: matrix of means (rows = components, cols = dimensions)
+  # p_hat: inferred mixing proportions (sum to 1)
+  # mus_hat: inferred means (rows = components, cols = dimensions)
+  # p: Wasserstein order (default = 2)
+
+  # Make sure weights sum to 1
+  p_true &lt;- p_true / sum(p_true)
+  p_hat &lt;- p_hat / sum(p_hat)
+
+  # Compute cost matrix (pairwise L^p distances between means)
+  cost &lt;- as.matrix(dist(rbind(mus_true, mus_hat), method = &quot;euclidean&quot;))^p
+  cost &lt;- cost[1:nrow(mus_true), (nrow(mus_true)+1):(nrow(mus_true)+nrow(mus_hat))]
+
+  # Solve optimal transport problem
+  ot_plan &lt;- transport(p_true, p_hat, costm = cost, method = &quot;networkflow&quot;)
+  # assuming ot_plan is your dataframe
+     nrow &lt;- max(ot_plan$from)
+     ncol &lt;- max(ot_plan$to)
+     
+     mat &lt;- matrix(0, nrow = nrow, ncol = ncol)
+     
+     for (i in 1:nrow(ot_plan)) {
+       mat[ot_plan$from[i], ot_plan$to[i]] &lt;- ot_plan$mass[i]
+     }
+     
+     mat
+
+  # Wasserstein distance
+  Wp &lt;- (sum(mat * cost))^(1/p)
+  return(Wp)
+}</code></pre>
+</div>
+<div id="function-for-calculating-the-bic-scores"
+class="section level2">
+<h2>Function for calculating the BIC scores</h2>
+</div>
+</div>
+<div id="case-1-weak-identifiable---equal-size-equally-spaced"
+class="section level1">
+<h1>Case 1: Weak identifiable - Equal size, equally spaced</h1>
+<p>True model has 4 components in 6 dimensional space</p>
+<pre class="r"><code>set.seed(0)
+
+# 4 components, equal weights
+ps_true &lt;- rep(1/4, 4)
+ps.true = ps_true
+
+# Means: 4 vectors in 6D
+mus_true &lt;- list()
+for (i in 1:4) {
+  mu &lt;- rep(0, 6)
+  mu[i] &lt;- 3
+  mus_true[[i]] &lt;- mu
+}
+
+mus.true = do.call(rbind, mus_true)
+
+# Identity covariance for each component
+Sigmas_true &lt;- replicate(4, diag(6), simplify = FALSE)
+
+# Sample n=500 points
+n &lt;- 500
+gen &lt;- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+X &lt;- gen$X   # data matrix (2000 × 6)
+y &lt;- gen$y   # cluster labels (1–4)</code></pre>
+<pre class="r"><code>W1_rep = c()
+BICs = c()
+DBICs = c()
+times = c()
+W1d_rep = c()
+timeds= c()
+n &lt;- 500
+ps_true &lt;- rep(1/4, 4)
+ps.true = ps_true
+
+table_record = tibble(W1_rep = c(),
+                      W1d_rep = c(),
+                      BICs = c(),
+                      DBICs = c(),
+                      times = c(),
+                      timeds= c(),
+                      N0_comps = c(),
+                      N0_comps_d = c())
+
+# Means: 4 vectors in 6D
+mus_true &lt;- list()
+for (i in 1:4) {
+  mu &lt;- rep(0, 6)
+  mu[i] &lt;- 3
+  mus_true[[i]] &lt;- mu
+}
+
+mus.true = do.call(rbind, mus_true)
+
+# Identity covariance for each component
+Sigmas_true &lt;- replicate(4, diag(6), simplify = FALSE)
+
+for (rep in 1:20)
+{
+     print(paste(&quot;The replicate &quot;,rep))
+     gen &lt;- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+     X &lt;- gen$X   # data matrix (2000 × 6)
+     y &lt;- gen$y   # cluster labels (1–4)
+     tic()
+     fit &lt;- Mclust(X, G = 1:10, modelNames = &quot;VVV&quot; )   
+     # summary(fit)
+     
+     print(paste(&quot;BIC&quot;, min(-fit$BIC) ))
+     t &lt;- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     ts &lt;- t$toc - t$tic 
+     P_hat = fit$parameters$pro
+     Mus_hat = fit$parameters$mean
+     Mus_hat = lapply(1:ncol(Mus_hat), function(j) Mus_hat[, j])
+     Mus_hat &lt;- do.call(rbind, Mus_hat)
+     W1 &lt;- wasserstein_mixture(ps.true, mus.true, P_hat, Mus_hat)
+     
+     
+     #### Dendrogram
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit2 &lt;- Mclust(X, G = 10, modelNames = &quot;VVV&quot;)   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit2$parameters$pro
+     mus_hat = fit2$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat &lt;- do.call(rbind, mus_hat)
+     sigma_hat &lt;- fit2$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list &lt;- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result &lt;- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td &lt;- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     tds &lt;- td$toc - td$tic 
+     
+     results &lt;- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge &lt;- dsc_result$pi[[i]]
+     mus_merge &lt;- dsc_result$mus[[i]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[i]]
+       
+     llh &lt;- gmm_loglik(X, ps_merge, mus_merge, Sigmas_merge)
+     bic &lt;- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = &quot;full&quot;)
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  &lt;- results[&quot;llh&quot;, ]
+     dbics &lt;- results[&quot;bic&quot;, ]
+     
+     ind_out = which.min(dbics)
+     print(paste(&quot;DBIC&quot;, min(dbics)))
+     
+     ps_merge &lt;- dsc_result$pi[[ind_out]]
+     list_group_merge &lt;- dsc_result$l[[ind_out]]
+     mus_merge &lt;- dsc_result$mus[[ind_out]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[ind_out]]
+     K_list &lt;- dsc_result$K
+     d_list &lt;- dsc_result$d
+     W1d &lt;- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+     tr = tibble(W1_rep = W1,
+                 W1d_rep = W1d,
+                 BICs = min(-fit$BIC),
+                 DBICs = min(dbics),
+                 times = ts,
+                 timeds= tds,
+                 N0_comps = length(P_hat),
+                 N0_comps_d = length(ps_merge))
+     table_record = bind_rows(table_record, tr)
+}</code></pre>
+<pre><code>[1] &quot;The replicate  1&quot;
+[1] &quot;BIC 10365.3669590681&quot;
+[1] &quot;DBIC 10413.097437157&quot;
+[1] &quot;The replicate  2&quot;
+[1] &quot;BIC 10281.0498656991&quot;
+[1] &quot;DBIC 10333.7001698371&quot;
+[1] &quot;The replicate  3&quot;
+[1] &quot;BIC 10361.1336797541&quot;
+[1] &quot;DBIC 10363.5452182583&quot;
+[1] &quot;The replicate  4&quot;
+[1] &quot;BIC 10312.4294769872&quot;
+[1] &quot;DBIC 10333.665726707&quot;
+[1] &quot;The replicate  5&quot;
+[1] &quot;BIC 10194.8265898834&quot;
+[1] &quot;DBIC 10210.0348941035&quot;
+[1] &quot;The replicate  6&quot;
+[1] &quot;BIC 10375.5488572597&quot;
+[1] &quot;DBIC 10371.1437538359&quot;
+[1] &quot;The replicate  7&quot;
+[1] &quot;BIC 10373.3491515159&quot;
+[1] &quot;DBIC 10402.2700710546&quot;
+[1] &quot;The replicate  8&quot;
+[1] &quot;BIC 10399.0576405478&quot;
+[1] &quot;DBIC 10382.6694961063&quot;
+[1] &quot;The replicate  9&quot;
+[1] &quot;BIC 10236.3853474968&quot;
+[1] &quot;DBIC 10216.7224646882&quot;
+[1] &quot;The replicate  10&quot;
+[1] &quot;BIC 10395.144345086&quot;
+[1] &quot;DBIC 10428.2925197005&quot;
+[1] &quot;The replicate  11&quot;
+[1] &quot;BIC 10493.6771709449&quot;
+[1] &quot;DBIC 10499.2484153577&quot;
+[1] &quot;The replicate  12&quot;
+[1] &quot;BIC 10277.0296353253&quot;
+[1] &quot;DBIC 10324.7239803074&quot;
+[1] &quot;The replicate  13&quot;
+[1] &quot;BIC 10236.3578137963&quot;
+[1] &quot;DBIC 10246.6880286289&quot;
+[1] &quot;The replicate  14&quot;
+[1] &quot;BIC 10232.1449702883&quot;
+[1] &quot;DBIC 10242.7208878659&quot;
+[1] &quot;The replicate  15&quot;
+[1] &quot;BIC 10256.9609592775&quot;
+[1] &quot;DBIC 10281.1423051682&quot;
+[1] &quot;The replicate  16&quot;
+[1] &quot;BIC 10173.9412235341&quot;
+[1] &quot;DBIC 10200.9731211174&quot;
+[1] &quot;The replicate  17&quot;
+[1] &quot;BIC 10209.6176114794&quot;
+[1] &quot;DBIC 10234.5946606171&quot;
+[1] &quot;The replicate  18&quot;
+[1] &quot;BIC 10167.1003028829&quot;
+[1] &quot;DBIC 10201.5371861854&quot;
+[1] &quot;The replicate  19&quot;
+[1] &quot;BIC 10309.7504657148&quot;
+[1] &quot;DBIC 10347.0360240598&quot;
+[1] &quot;The replicate  20&quot;
+[1] &quot;BIC 10362.3160491947&quot;
+[1] &quot;DBIC 10370.675524493&quot;</code></pre>
+<pre class="r"><code># saveRDS(table_record, paste(&quot;comparison_weak_equal_separate_n_&quot;,n,&quot;.rds&quot;, sep = &quot;&quot;))</code></pre>
+<pre class="r"><code>for (rep in 1:50)
+{
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit &lt;- Mclust(X, G = 10, modelNames = &quot;VVV&quot;)   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit$parameters$pro
+     mus_hat = fit$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat &lt;- do.call(rbind, mus_hat)
+     sigma_hat &lt;- fit$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list &lt;- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result &lt;- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td &lt;- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     timeds[rep] &lt;- td$toc - td$tic 
+     
+     results &lt;- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge &lt;- dsc_result$pi[[i]]
+     mus_merge &lt;- dsc_result$mus[[i]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[i]]
+       
+     llh &lt;- gmm_loglik_fast(X, ps_merge, mus_merge, Sigmas_merge)
+     bic &lt;- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = &quot;full&quot;)
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  &lt;- results[&quot;llh&quot;, ]
+     DBICs &lt;- results[&quot;bic&quot;, ]
+     
+     ind_out = which.min(DBICs)
+     
+     
+     ps_merge &lt;- dsc_result$pi[[ind_out]]
+     list_group_merge &lt;- dsc_result$l[[ind_out]]
+     mus_merge &lt;- dsc_result$mus[[ind_out]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[ind_out]]
+     K_list &lt;- dsc_result$K
+     d_list &lt;- dsc_result$d
+     W1d_rep[rep] &lt;- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+}</code></pre>
+</div>
+<div
+id="case-3-weak-identifiable---small-proportion-overlapping-clusters"
+class="section level1">
+<h1>Case 3: Weak identifiable - Small proportion + overlapping
+clusters</h1>
+<pre class="r"><code>W1_rep = c()
+BICs = c()
+DBICs = c()
+times = c()
+W1d_rep = c()
+timeds= c()
+n &lt;- 500
+p_rest = (1-0.05)/3
+ps_true &lt;- replicate(4, p_rest)
+ps_true[1] = 0.05
+ps.true = ps_true
+
+table_record = tibble(W1_rep = c(),
+                      W1d_rep = c(),
+                      BICs = c(),
+                      DBICs = c(),
+                      times = c(),
+                      timeds= c(),
+                      N0_comps = c(),
+                      N0_comps_d = c())
+
+# Means: 4 vectors in 6D
+# mus_true
+
+mus_true &lt;- list()
+for (i in 1:4) {
+  mu &lt;- rep(0, 6)
+  mu[i] &lt;- 3
+  mus_true[[i]] &lt;- mu
+}
+mus_true[[3]] = mus_true[[3]]/3
+mus_true[[4]] = mus_true[[4]]/3
+mus.true = do.call(rbind, mus_true)
+
+# Sigmas_true
+Sigmas_true &lt;- replicate(4, diag(6), simplify = FALSE)
+
+
+for (rep in 1:20)
+{
+     print(paste(&quot;The replicate &quot;,rep))
+     gen &lt;- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+     X &lt;- gen$X   # data matrix (2000 × 6)
+     y &lt;- gen$y   # cluster labels (1–4)
+     tic()
+     fit &lt;- Mclust(X, G = 1:10, modelNames = &quot;VVV&quot; )   
+     # summary(fit)
+     
+     print(paste(&quot;BIC&quot;, min(-fit$BIC) ))
+     t &lt;- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     ts &lt;- t$toc - t$tic 
+     P_hat = fit$parameters$pro
+     Mus_hat = fit$parameters$mean
+     Mus_hat = lapply(1:ncol(Mus_hat), function(j) Mus_hat[, j])
+     Mus_hat &lt;- do.call(rbind, Mus_hat)
+     W1 &lt;- wasserstein_mixture(ps.true, mus.true, P_hat, Mus_hat)
+     
+     
+     #### Dendrogram
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit2 &lt;- Mclust(X, G = 10, modelNames = &quot;VVV&quot;)   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit2$parameters$pro
+     mus_hat = fit2$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat &lt;- do.call(rbind, mus_hat)
+     sigma_hat &lt;- fit2$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list &lt;- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result &lt;- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td &lt;- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     tds &lt;- td$toc - td$tic 
+     
+     results &lt;- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge &lt;- dsc_result$pi[[i]]
+     mus_merge &lt;- dsc_result$mus[[i]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[i]]
+       
+     llh &lt;- gmm_loglik(X, ps_merge, mus_merge, Sigmas_merge)
+     bic &lt;- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = &quot;full&quot;)
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  &lt;- results[&quot;llh&quot;, ]
+     dbics &lt;- results[&quot;bic&quot;, ]
+     
+     ind_out = which.min(dbics)
+     print(paste(&quot;DBIC&quot;, min(dbics)))
+     
+     ps_merge &lt;- dsc_result$pi[[ind_out]]
+     list_group_merge &lt;- dsc_result$l[[ind_out]]
+     mus_merge &lt;- dsc_result$mus[[ind_out]]
+     Sigmas_merge &lt;- dsc_result$Sigmas[[ind_out]]
+     K_list &lt;- dsc_result$K
+     d_list &lt;- dsc_result$d
+     W1d &lt;- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+     tr = tibble(W1_rep = W1,
+                 W1d_rep = W1d,
+                 BICs = min(-fit$BIC),
+                 DBICs = min(dbics),
+                 times = ts,
+                 timeds= tds,
+                 N0_comps = length(P_hat),
+                 N0_comps_d = length(ps_merge))
+     table_record = bind_rows(table_record, tr)
+}</code></pre>
+<pre><code>[1] &quot;The replicate  1&quot;
+[1] &quot;BIC 9587.67994869208&quot;
+[1] &quot;DBIC 9587.67055613819&quot;
+[1] &quot;The replicate  2&quot;
+[1] &quot;BIC 9552.80471461943&quot;
+[1] &quot;DBIC 9552.80377487441&quot;
+[1] &quot;The replicate  3&quot;
+[1] &quot;BIC 9495.60907075738&quot;
+[1] &quot;DBIC 9495.60859684627&quot;
+[1] &quot;The replicate  4&quot;
+[1] &quot;BIC 9515.13124563094&quot;
+[1] &quot;DBIC 9515.13085629009&quot;
+[1] &quot;The replicate  5&quot;
+[1] &quot;BIC 9658.97783315212&quot;
+[1] &quot;DBIC 9658.96854497761&quot;
+[1] &quot;The replicate  6&quot;
+[1] &quot;BIC 9504.20781612024&quot;
+[1] &quot;DBIC 9504.20775575501&quot;
+[1] &quot;The replicate  7&quot;
+[1] &quot;BIC 9636.57253274462&quot;
+[1] &quot;DBIC 9636.57236218899&quot;
+[1] &quot;The replicate  8&quot;
+[1] &quot;BIC 9576.74428986305&quot;
+[1] &quot;DBIC 9576.74406803459&quot;
+[1] &quot;The replicate  9&quot;
+[1] &quot;BIC 9392.32767379677&quot;
+[1] &quot;DBIC 9392.32727227006&quot;
+[1] &quot;The replicate  10&quot;
+[1] &quot;BIC 9517.2796993098&quot;
+[1] &quot;DBIC 9517.27042781164&quot;
+[1] &quot;The replicate  11&quot;
+[1] &quot;BIC 9411.97628401469&quot;
+[1] &quot;DBIC 9411.97602498665&quot;
+[1] &quot;The replicate  12&quot;
+[1] &quot;BIC 9505.01357388764&quot;
+[1] &quot;DBIC 9505.01312143638&quot;
+[1] &quot;The replicate  13&quot;
+[1] &quot;BIC 9630.61536476083&quot;
+[1] &quot;DBIC 9630.61529211501&quot;
+[1] &quot;The replicate  14&quot;
+[1] &quot;BIC 9410.40365700684&quot;
+[1] &quot;DBIC 9410.40284377255&quot;
+[1] &quot;The replicate  15&quot;
+[1] &quot;BIC 9396.78762519171&quot;
+[1] &quot;DBIC 9396.78732062523&quot;
+[1] &quot;The replicate  16&quot;
+[1] &quot;BIC 9550.62126311383&quot;
+[1] &quot;DBIC 9550.62108215508&quot;
+[1] &quot;The replicate  17&quot;
+[1] &quot;BIC 9554.481988093&quot;
+[1] &quot;DBIC 9554.48163500315&quot;
+[1] &quot;The replicate  18&quot;
+[1] &quot;BIC 9395.93368852472&quot;
+[1] &quot;DBIC 9395.93351285635&quot;
+[1] &quot;The replicate  19&quot;
+[1] &quot;BIC 9627.96224412455&quot;
+[1] &quot;DBIC 9627.96210313418&quot;
+[1] &quot;The replicate  20&quot;
+[1] &quot;BIC 9570.57798722047&quot;
+[1] &quot;DBIC 9570.57788802519&quot;</code></pre>
+<pre class="r"><code>saveRDS(table_record, paste(&quot;comparison_weak_diff_nonseparate_n_&quot;,n,&quot;.rds&quot;, sep=&quot;&quot;))</code></pre>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
+Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.5.1 (2025-06-13)
+Platform: aarch64-apple-darwin20
+Running under: macOS Ventura 13.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] transport_0.15-4  mvtnorm_1.3-3     lubridate_1.9.4   forcats_1.0.0    
+ [5] stringr_1.5.1     dplyr_1.1.4       purrr_1.1.0       readr_2.1.5      
+ [9] tidyr_1.3.1       tibble_3.3.0      tidyverse_2.0.0   tictoc_1.2.1     
+[13] cluster_2.1.8.1   ggplot2_3.5.2     mclust_6.1.1      matrixStats_1.5.0
+[17] MASS_7.3-65       here_1.0.1       
+
+loaded via a namespace (and not attached):
+ [1] sass_0.4.10        generics_0.1.4     stringi_1.8.7      hms_1.1.3         
+ [5] digest_0.6.37      magrittr_2.0.3     timechange_0.3.0   evaluate_1.0.4    
+ [9] grid_4.5.1         RColorBrewer_1.1-3 fastmap_1.2.0      rprojroot_2.1.1   
+[13] workflowr_1.7.2    jsonlite_2.0.0     whisker_0.4.1      promises_1.3.3    
+[17] scales_1.4.0       codetools_0.2-20   jquerylib_0.1.4    cli_3.6.5         
+[21] rlang_1.1.6        withr_3.0.2        cachem_1.1.0       yaml_2.3.10       
+[25] tools_4.5.1        tzdb_0.5.0         httpuv_1.6.16      vctrs_0.6.5       
+[29] R6_2.6.1           lifecycle_1.0.4    git2r_0.36.2       fs_1.6.6          
+[33] pkgconfig_2.0.3    pillar_1.11.0      bslib_0.9.0        later_1.4.3       
+[37] gtable_0.3.6       data.table_1.17.8  glue_1.8.0         Rcpp_1.1.0        
+[41] xfun_0.53          tidyselect_1.2.1   rstudioapi_0.17.1  knitr_1.50        
+[45] farver_2.1.2       htmltools_0.5.8.1  rmarkdown_2.29     compiler_4.5.1    </code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+https://docs.mathjax.org/en/latest/web/configuration.html. This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
