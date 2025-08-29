@@ -1,10 +1,14 @@
-name: "Dendrogram_project_in_R"
+name: Dendrogram_project_in_R
 output_dir: ../docs
 navbar:
-  title: "Dendrogram_project_in_R"
+  title: Dendrogram_project_in_R
   left:
   - text: Overview
     href: index.html
+  right:
+  - icon: fab fa-github
+    text: Source code
+    href: https://github.com/Ldo3/Dendrogram_project_in_R
 output:
   workflowr::wflow_html:
     toc: yes
