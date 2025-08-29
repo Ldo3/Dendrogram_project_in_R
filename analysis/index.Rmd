@@ -1,5 +1,5 @@
 ---
-title: "Home"
+title: "Overview"
 site: workflowr::wflow_site
 output:
   workflowr::wflow_html:
@@ -8,4 +8,8 @@ editor_options:
   chunk_output_type: console
 ---
 
-Welcome to my research website.
+In website contains our additional experiment in the paper of [Dendrogram of mixing measures: Hierarchical clustering and model selection for finite mixture models](https://arxiv.org/pdf/2403.01684).
+
+Currently, we have 2 versions of code for Dendrogram one in Python language and one in R. The R code is provided here. We compare the running time of the Dendrogram post-processing method (applied to overfitted mixture models) to the traditional approach of fitting mixture models with various numbers of components using the \texttt{Mclust} package in the programming language R. Please set the link below for more detail of the experiment
+
+ + [Comparing running time of the dendrogram method to Mclust](time_running_mclust_compare.html)

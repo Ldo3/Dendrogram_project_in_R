@@ -1,0 +1,587 @@
+---
+title: "Compare running time of the dendrogram method to Mclust"
+output:
+  workflowr::wflow_html:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this experiment, we compare the running time of the Dendrogram post-processing method (applied to overfitted mixture models) to the traditional approach of fitting mixture models with various numbers of components using the `Mclust` package in the programming language `R`. The data was generated under the two scenarios discussed in the previous section, where we have weakly identifiable and equal-size, equally spaced clusters and weakly identifiable and different-size, overlapping clusters settings. In the traditional approach, we ran Mclust with the number of components varying from $1$ to $10$, allowing for a full covariance matrix (`modelNames = "VVV"`), and chose the model with the lowest BIC score. In our proposed approach, we ran Mclust once, with the number of components being $10$, and then used the Dendrogram algorithm afterward. Given the recorded output in each level of the Dendrogram, we calculated the associated BIC score. We then chose the model that has the smallest BIC value.  The following two tables show the result after running 20 replication times for each of the same sizes of $n = 500, 5000, 50000$. It is clear to see that the Dendrogram approach saves computation time since we only need to fit the model once. We also achieved a good model compared to the MLE output by looking at the Wasserstein distance and BIC score report. 
+
+**Note:** This site contains all code that we used for the experiment. It can be used for reproducing the results. We saved output in `.rds` files in the `data` folder. 
+
+# Beginning functions
+
+## Source the dendrogram code
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(here)
+source(here("code", "dendrogram.R"))
+library(tictoc)
+library(tidyverse)
+library(mvtnorm)
+```
+## Generating the data function
+
+```{r simulate function, message=FALSE}
+# Generate samples from a Gaussian mixture
+gen_mix_Gauss <- function(n, p, mus_true, Sigmas_true) {
+  k0 <- length(p)
+  d <- length(mus_true[[1]])
+  
+  y <- sample(1:k0, size = n, replace = TRUE, prob = p)  # cluster labels
+  X <- matrix(0, nrow = n, ncol = d)
+  
+  for (i in 1:k0) {
+    idx <- which(y == i)
+    if (length(idx) > 0) {
+      X[idx, ] <- rmvnorm(length(idx), mean = mus_true[[i]], sigma = Sigmas_true[[i]])
+    }
+  }
+  
+  return(list(X = X, y = y))
+}
+
+# Log-likelihood for mixture
+average_llh <- function(X, p, mu, Sigma) {
+  n <- nrow(X)
+  k <- length(p)
+  logpdfs <- sapply(1:k, function(i) {
+    dmvnorm(X, mean = mu[[i]], sigma = Sigma[[i]], log = TRUE)
+  })
+  llh_bar <- mean(matrixStats::rowLogSumExps(log(p) + logpdfs))
+  return(llh_bar)
+}
+
+library(mvtnorm)
+
+library(mvtnorm)
+
+gmm_loglik <- function(X, pis, mus, Sigmas) {
+  n <- nrow(X)
+  k <- length(pis)
+  
+  # Matrix: n x k of component densities
+  dens <- sapply(1:k, function(j) {
+    dmvnorm(X, mean = mus[j, ], sigma = Sigmas[[j]], log = FALSE)
+  })
+  
+  # Mixture likelihood per point
+  mixture_prob <- dens %*% pis
+  
+  # Total log-likelihood
+  sum(log(mixture_prob + 1e-12))
+}
+
+
+omega <- function(n) log(n)
+
+# Class: Fixed covariance Gaussian mixture
+FixedCovMixture <- setRefClass(
+  "FixedCovMixture",
+  fields = list(
+    n_components = "numeric",
+    cov = "matrix",
+    max_iter = "numeric",
+    random_state = "numeric",
+    tol = "numeric",
+    p_ = "numeric",
+    mean_ = "matrix",
+    n_iter_ = "numeric"
+  ),
+  methods = list(
+    initialize = function(n_components, cov, max_iter = 100, random_state = NULL, tol = 1e-4) {
+      n_components <<- n_components
+      cov <<- cov
+      max_iter <<- max_iter
+      random_state <<- random_state
+      tol <<- tol
+      p_ <<- rep(1 / n_components, n_components)
+    },
+    
+    fit = function(X) {
+      if (!is.null(random_state)) set.seed(random_state)
+      n_obs <- nrow(X)
+      n_features <- ncol(X)
+      
+      # initialize centers
+      mean_ <<- X[sample(1:n_obs, size = n_components), , drop = FALSE]
+      
+      for (i in 1:max_iter) {
+        res <- updated_centers(X)
+        new_p <- res$p
+        new_centers <- res$centers
+        
+        if (sum(abs(new_centers - mean_)) < tol) {
+          break
+        } else {
+          mean_ <<- new_centers
+          p_ <<- new_p
+        }
+      }
+      n_iter_ <<- i
+    },
+    
+    updated_centers = function(X) {
+      cluster_posterior <- predict_proba(X)
+      
+      weight <- cluster_posterior / rowSums(cluster_posterior)
+      new_p <- colSums(cluster_posterior) / sum(cluster_posterior)
+      new_centers <- t(weight) %*% X
+      
+      return(list(p = new_p, centers = new_centers))
+    },
+    
+    predict_proba = function(X) {
+      likelihood <- sapply(1:n_components, function(i) {
+        dmvnorm(X, mean = mean_[i, ], sigma = cov)
+      })
+      weights <- p_ * t(likelihood)
+      cluster_posterior <- t(weights) / colSums(weights)
+      return(cluster_posterior)
+    },
+    
+    predict = function(X) {
+      post <- predict_proba(X)
+      return(max.col(post, ties.method = "first"))
+    }
+  )
+)
+
+fast_dmvnorm <- function(X, mean, sigma) {
+     d <- ncol(X)
+     n <- nrow(X)
+     
+     # Cholesky decomposition
+     cholS <- chol(sigma)
+     logdet <- 2 * sum(log(diag(cholS)))
+     
+     # Centered data
+     Xc <- sweep(X, 2, mean, "-")
+     
+     # Solve using triangular system (avoids matrix inverse!)
+     Q <- forwardsolve(t(cholS), t(Xc))  # d x n
+     quad <- colSums(Q^2)                 # quadratic form
+     
+     const <- -0.5 * d * log(2 * pi)
+     dens <- exp(const - 0.5 * logdet - 0.5 * quad)
+     return(dens)
+}
+
+gmm_loglik_fast <- function(X, pis, mus, Sigmas) {
+     n <- nrow(X)
+     k <- length(pis)
+     
+     # Compute n x k density matrix
+     dens <- sapply(1:k, function(j) {
+          fast_dmvnorm(X, mean = mus[j, ], sigma = Sigmas[[j]])
+     })
+     
+     # Weighted mixture likelihood
+     mixture_prob <- dens %*% pis
+     
+     # Total log-likelihood
+     sum(log(mixture_prob + 1e-12))
+}
+
+```
+
+## Calculate optimal transport function
+
+```{r calculate optimal transport}
+library(transport)
+
+# Compute Wasserstein distance between two Gaussian mixtures (ignoring covariance)
+wasserstein_mixture <- function(p_true, mus_true, p_hat, mus_hat, p = 2) {
+  # p_true: vector of mixing proportions (sum to 1)
+  # mus_true: matrix of means (rows = components, cols = dimensions)
+  # p_hat: inferred mixing proportions (sum to 1)
+  # mus_hat: inferred means (rows = components, cols = dimensions)
+  # p: Wasserstein order (default = 2)
+
+  # Make sure weights sum to 1
+  p_true <- p_true / sum(p_true)
+  p_hat <- p_hat / sum(p_hat)
+
+  # Compute cost matrix (pairwise L^p distances between means)
+  cost <- as.matrix(dist(rbind(mus_true, mus_hat), method = "euclidean"))^p
+  cost <- cost[1:nrow(mus_true), (nrow(mus_true)+1):(nrow(mus_true)+nrow(mus_hat))]
+
+  # Solve optimal transport problem
+  ot_plan <- transport(p_true, p_hat, costm = cost, method = "networkflow")
+  # assuming ot_plan is your dataframe
+     nrow <- max(ot_plan$from)
+     ncol <- max(ot_plan$to)
+     
+     mat <- matrix(0, nrow = nrow, ncol = ncol)
+     
+     for (i in 1:nrow(ot_plan)) {
+       mat[ot_plan$from[i], ot_plan$to[i]] <- ot_plan$mass[i]
+     }
+     
+     mat
+
+  # Wasserstein distance
+  Wp <- (sum(mat * cost))^(1/p)
+  return(Wp)
+}
+
+```
+
+
+## Function for calculating the BIC scores
+
+```{r bic calculation, echo=FALSE, warning=FALSE}
+bic_gmm <- function(loglik, n, k, d = 6, cov = c("full","diag","spherical","tied_full","tied_spherical")){
+  cov <- match.arg(cov)
+  if (cov == "full")        p <- (k-1) + k*d + k*d*(d+1)/2
+  else if (cov == "diag")   p <- (k-1) + k*d + k*d
+  else if (cov == "spherical") p <- (k-1) + k*d + k
+  else if (cov == "tied_full") p <- (k-1) + k*d + d*(d+1)/2
+  else if (cov == "tied_spherical") p <- (k-1) + k*d + 1
+  -2*loglik + p*log(n)
+}
+
+```
+# Case 1: Weak identifiable - Equal size, equally spaced
+
+True model has 4 components in 6 dimensional space
+```{r simulated data for case 1}
+
+set.seed(0)
+
+# 4 components, equal weights
+ps_true <- rep(1/4, 4)
+ps.true = ps_true
+
+# Means: 4 vectors in 6D
+mus_true <- list()
+for (i in 1:4) {
+  mu <- rep(0, 6)
+  mu[i] <- 3
+  mus_true[[i]] <- mu
+}
+
+mus.true = do.call(rbind, mus_true)
+
+# Identity covariance for each component
+Sigmas_true <- replicate(4, diag(6), simplify = FALSE)
+
+# Sample n=500 points
+n <- 500
+gen <- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+X <- gen$X   # data matrix (2000 × 6)
+y <- gen$y   # cluster labels (1–4)
+
+```
+
+```{r weak_equal_separate}
+
+W1_rep = c()
+BICs = c()
+DBICs = c()
+times = c()
+W1d_rep = c()
+timeds= c()
+n <- 500
+ps_true <- rep(1/4, 4)
+ps.true = ps_true
+
+table_record = tibble(W1_rep = c(),
+                      W1d_rep = c(),
+                      BICs = c(),
+                      DBICs = c(),
+                      times = c(),
+                      timeds= c(),
+                      N0_comps = c(),
+                      N0_comps_d = c())
+
+# Means: 4 vectors in 6D
+mus_true <- list()
+for (i in 1:4) {
+  mu <- rep(0, 6)
+  mu[i] <- 3
+  mus_true[[i]] <- mu
+}
+
+mus.true = do.call(rbind, mus_true)
+
+# Identity covariance for each component
+Sigmas_true <- replicate(4, diag(6), simplify = FALSE)
+
+for (rep in 1:20)
+{
+     print(paste("The replicate ",rep))
+     gen <- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+     X <- gen$X   # data matrix (2000 × 6)
+     y <- gen$y   # cluster labels (1–4)
+     tic()
+     fit <- Mclust(X, G = 1:10, modelNames = "VVV" )   
+     # summary(fit)
+     
+     print(paste("BIC", min(-fit$BIC) ))
+     t <- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     ts <- t$toc - t$tic 
+     P_hat = fit$parameters$pro
+     Mus_hat = fit$parameters$mean
+     Mus_hat = lapply(1:ncol(Mus_hat), function(j) Mus_hat[, j])
+     Mus_hat <- do.call(rbind, Mus_hat)
+     W1 <- wasserstein_mixture(ps.true, mus.true, P_hat, Mus_hat)
+     
+     
+     #### Dendrogram
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit2 <- Mclust(X, G = 10, modelNames = "VVV")   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit2$parameters$pro
+     mus_hat = fit2$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat <- do.call(rbind, mus_hat)
+     sigma_hat <- fit2$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list <- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result <- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td <- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     tds <- td$toc - td$tic 
+     
+     results <- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge <- dsc_result$pi[[i]]
+     mus_merge <- dsc_result$mus[[i]]
+     Sigmas_merge <- dsc_result$Sigmas[[i]]
+       
+     llh <- gmm_loglik(X, ps_merge, mus_merge, Sigmas_merge)
+     bic <- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = "full")
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  <- results["llh", ]
+     dbics <- results["bic", ]
+     
+     ind_out = which.min(dbics)
+     print(paste("DBIC", min(dbics)))
+     
+     ps_merge <- dsc_result$pi[[ind_out]]
+     list_group_merge <- dsc_result$l[[ind_out]]
+     mus_merge <- dsc_result$mus[[ind_out]]
+     Sigmas_merge <- dsc_result$Sigmas[[ind_out]]
+     K_list <- dsc_result$K
+     d_list <- dsc_result$d
+     W1d <- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+     tr = tibble(W1_rep = W1,
+                 W1d_rep = W1d,
+                 BICs = min(-fit$BIC),
+                 DBICs = min(dbics),
+                 times = ts,
+                 timeds= tds,
+                 N0_comps = length(P_hat),
+                 N0_comps_d = length(ps_merge))
+     table_record = bind_rows(table_record, tr)
+}
+
+# saveRDS(table_record, paste("comparison_weak_equal_separate_n_",n,".rds", sep = ""))
+
+
+```
+
+
+```{r fit GMM and run Dendrogram}
+
+for (rep in 1:50)
+{
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit <- Mclust(X, G = 10, modelNames = "VVV")   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit$parameters$pro
+     mus_hat = fit$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat <- do.call(rbind, mus_hat)
+     sigma_hat <- fit$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list <- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result <- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td <- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     timeds[rep] <- td$toc - td$tic 
+     
+     results <- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge <- dsc_result$pi[[i]]
+     mus_merge <- dsc_result$mus[[i]]
+     Sigmas_merge <- dsc_result$Sigmas[[i]]
+       
+     llh <- gmm_loglik_fast(X, ps_merge, mus_merge, Sigmas_merge)
+     bic <- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = "full")
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  <- results["llh", ]
+     DBICs <- results["bic", ]
+     
+     ind_out = which.min(DBICs)
+     
+     
+     ps_merge <- dsc_result$pi[[ind_out]]
+     list_group_merge <- dsc_result$l[[ind_out]]
+     mus_merge <- dsc_result$mus[[ind_out]]
+     Sigmas_merge <- dsc_result$Sigmas[[ind_out]]
+     K_list <- dsc_result$K
+     d_list <- dsc_result$d
+     W1d_rep[rep] <- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+}
+
+
+```
+
+```{r, include=FALSE}
+# True mixture
+p_true <- c(0.25, 0.25, 0.25, 0.25)
+mus_true <- rbind(
+  c(3,0,0,0,0,0),
+  c(0,3,0,0,0,0),
+  c(0,0,3,0,0,0),
+  c(0,0,0,3,0,0)
+)
+
+
+W_dist <- wasserstein_mixture(p_true, mus_true, p_hat, mus_hat)
+print(W_dist)
+
+```
+
+
+# Case 3: Weak identifiable - Small proportion + overlapping clusters
+```{r weak_diff_nonseparate}
+
+
+W1_rep = c()
+BICs = c()
+DBICs = c()
+times = c()
+W1d_rep = c()
+timeds= c()
+n <- 500
+p_rest = (1-0.05)/3
+ps_true <- replicate(4, p_rest)
+ps_true[1] = 0.05
+ps.true = ps_true
+
+table_record = tibble(W1_rep = c(),
+                      W1d_rep = c(),
+                      BICs = c(),
+                      DBICs = c(),
+                      times = c(),
+                      timeds= c(),
+                      N0_comps = c(),
+                      N0_comps_d = c())
+
+# Means: 4 vectors in 6D
+# mus_true
+
+mus_true <- list()
+for (i in 1:4) {
+  mu <- rep(0, 6)
+  mu[i] <- 3
+  mus_true[[i]] <- mu
+}
+mus_true[[3]] = mus_true[[3]]/3
+mus_true[[4]] = mus_true[[4]]/3
+mus.true = do.call(rbind, mus_true)
+
+# Sigmas_true
+Sigmas_true <- replicate(4, diag(6), simplify = FALSE)
+
+
+for (rep in 1:20)
+{
+     print(paste("The replicate ",rep))
+     gen <- gen_mix_Gauss(n, ps_true, mus_true, Sigmas_true)
+     X <- gen$X   # data matrix (2000 × 6)
+     y <- gen$y   # cluster labels (1–4)
+     tic()
+     fit <- Mclust(X, G = 1:10, modelNames = "VVV" )   
+     # summary(fit)
+     
+     print(paste("BIC", min(-fit$BIC) ))
+     t <- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     ts <- t$toc - t$tic 
+     P_hat = fit$parameters$pro
+     Mus_hat = fit$parameters$mean
+     Mus_hat = lapply(1:ncol(Mus_hat), function(j) Mus_hat[, j])
+     Mus_hat <- do.call(rbind, Mus_hat)
+     W1 <- wasserstein_mixture(ps.true, mus.true, P_hat, Mus_hat)
+     
+     
+     #### Dendrogram
+     tic()
+     # --- 1. Fit mixture model in 6D ---
+     fit2 <- Mclust(X, G = 10, modelNames = "VVV")   
+     # summary(fit)
+     
+     # Estimated parameters
+     p_hat = fit2$parameters$pro
+     mus_hat = fit2$parameters$mean         # means of clusters
+     mus_hat =lapply(1:ncol(mus_hat), function(j) mus_hat[, j])
+     mus_hat <- do.call(rbind, mus_hat)
+     sigma_hat <- fit2$parameters$variance$sigma  # covariance matrices
+     # fit$classification[1:10]    # cluster labels for first 10 points
+     
+     Sigma_list <- lapply(1:dim(sigma_hat)[3], function(i) sigma_hat[,,i])
+     dsc_result <- dsc_location_scale_gaussian_R(pi = p_hat, mus = mus_hat, Sigmas = Sigma_list)
+     td <- toc(log = TRUE, quiet = TRUE)   # stop timer, don’t print
+     tds <- td$toc - td$tic 
+     
+     results <- vapply(seq_along(Sigma_list), function(i) {
+     ps_merge <- dsc_result$pi[[i]]
+     mus_merge <- dsc_result$mus[[i]]
+     Sigmas_merge <- dsc_result$Sigmas[[i]]
+       
+     llh <- gmm_loglik(X, ps_merge, mus_merge, Sigmas_merge)
+     bic <- bic_gmm(llh, n = n, k = length(ps_merge), d = 6, cov = "full")
+       
+       c(llh = llh, bic = bic)
+     }, numeric(2))
+     
+     # llhs  <- results["llh", ]
+     dbics <- results["bic", ]
+     
+     ind_out = which.min(dbics)
+     print(paste("DBIC", min(dbics)))
+     
+     ps_merge <- dsc_result$pi[[ind_out]]
+     list_group_merge <- dsc_result$l[[ind_out]]
+     mus_merge <- dsc_result$mus[[ind_out]]
+     Sigmas_merge <- dsc_result$Sigmas[[ind_out]]
+     K_list <- dsc_result$K
+     d_list <- dsc_result$d
+     W1d <- wasserstein_mixture(ps.true, mus.true, ps_merge, mus_merge)
+     
+     tr = tibble(W1_rep = W1,
+                 W1d_rep = W1d,
+                 BICs = min(-fit$BIC),
+                 DBICs = min(dbics),
+                 times = ts,
+                 timeds= tds,
+                 N0_comps = length(P_hat),
+                 N0_comps_d = length(ps_merge))
+     table_record = bind_rows(table_record, tr)
+}
+
+saveRDS(table_record, paste("comparison_weak_diff_nonseparate_n_",n,".rds", sep=""))
+
+
+```
+
