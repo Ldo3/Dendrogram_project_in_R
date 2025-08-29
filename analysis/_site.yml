@@ -3,12 +3,8 @@ output_dir: ../docs
 navbar:
   title: "Dendrogram_project_in_R"
   left:
-  - text: Home
+  - text: Overview
     href: index.html
-  - text: About
-    href: about.html
-  - text: License
-    href: license.html
 output:
   workflowr::wflow_html:
     toc: yes
